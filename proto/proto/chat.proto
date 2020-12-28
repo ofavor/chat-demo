@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package chat;
+
+option go_package = "../chat;chat";
+
+message CommandRequest {
+    uint32  type = 1;
+    string  data = 2;
+    map<string, string> meta = 3;
+}
+
+message CommandResponse {}
+
+service Chat {
+    rpc Command(CommandRequest) returns (CommandResponse) {}
+}

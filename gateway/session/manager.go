@@ -1,10 +1,11 @@
 package session
 
 import (
-	"chat-srv/chat"
 	"context"
 	"fmt"
 	"sync/atomic"
+
+	"proto/chat"
 
 	"github.com/ofavor/micro-lite"
 	"github.com/ofavor/socket-gw/session"

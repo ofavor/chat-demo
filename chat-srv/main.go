@@ -1,10 +1,11 @@
 package main
 
 import (
-	"chat-srv/chat"
+	csc "chat-srv/chat"
 	"chat-srv/log"
 	"flag"
 	"fmt"
+	"proto/chat"
 	"strings"
 
 	"github.com/ofavor/micro-lite"
@@ -24,9 +25,9 @@ func main() {
 		micro.RegistryAddrs(strings.Split(*regAddrs, ",")),
 	)
 
-	chatMgr := chat.NewManager(service)
+	chatMgr := csc.NewManager(service)
 	// register rpc
-	chat.RegisterChatHandler(service.Server(), chat.NewChatHandler(chatMgr))
+	chat.RegisterChatHandler(service.Server(), csc.NewChatHandler(chatMgr))
 
 	if err := service.Run(); err != nil {
 		log.Fatal("service run error:", err)

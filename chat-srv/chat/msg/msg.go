@@ -58,12 +58,14 @@ type Member struct {
 type NotifyJoinRoom struct {
 	ID  string `json:"id"`
 	Who Member `json:"who"`
+	At  int64  `json:"at"`
 }
 
 // NotifyQuitRoom quit room notification
 type NotifyQuitRoom struct {
 	ID  string `json:"id"`
 	Who Member `json:"who"`
+	At  int64  `json:"at"`
 }
 
 // NotifyMessage message notification
@@ -71,4 +73,5 @@ type NotifyMessage struct {
 	ID      string `json:"id"`
 	Who     Member `json:"who"`
 	Message string `json:"message"`
+	At      int64  `json:"at"`
 }
