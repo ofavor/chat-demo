@@ -1,7 +1,34 @@
 package main
 
-import "fmt"
+import (
+	"chat-srv/chat"
+	"chat-srv/log"
+	"flag"
+	"fmt"
+	"strings"
+
+	"github.com/ofavor/micro-lite"
+)
 
 func main() {
-	fmt.Println("Hello world")
+	regAddrs := flag.String("registry_addrs", "127.0.0.1:2379", "registry address list, splitted by ','")
+	flag.Parse()
+
+	fmt.Println("registry address:", *regAddrs)
+
+	log.SetLevel("debug")
+	log.Info("Gateway is starting ...")
+	service := micro.NewService(
+		micro.LogLevel("debug"),
+		micro.Name("chat-demo.chat"),
+		micro.RegistryAddrs(strings.Split(*regAddrs, ",")),
+	)
+
+	chatMgr := chat.NewManager(service)
+	// register rpc
+	chat.RegisterChatHandler(service.Server(), chat.NewChatHandler(chatMgr))
+
+	if err := service.Run(); err != nil {
+		log.Fatal("service run error:", err)
+	}
 }
