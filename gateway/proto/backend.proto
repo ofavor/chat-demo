@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package backend;
+
+option go_package = "../backend;backend";
+
+message StatusRequest {
+    string              id = 1; // session id
+    map<string, string> meta = 2;
+}
+
+message StatusResponse {
+}
+
+
+message DataRequest {
+    string              id = 1; // session id
+    uint32              type = 2;
+    map<string, string> meta = 3;
+    bytes               data = 4;
+}
+
+message DataResponse {
+}
+
+service Backend {
+    rpc Connect(StatusRequest) returns (StatusResponse) {} // notify backend session connected
+    rpc Disconnect(StatusRequest) returns (StatusResponse) {} // notify backend session disconnected
+    rpc Data(DataRequest) returns (DataResponse) {} // notify backend got data packet
+}

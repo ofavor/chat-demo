@@ -2,12 +2,13 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"gateway/session"
 	"sync"
 
 	"chat-srv/chat/msg"
-
-	"proto/session"
+	"chat-srv/log"
 
 	"github.com/ofavor/micro-lite"
 )
@@ -29,7 +30,8 @@ func NewManager(s micro.Service) *Manager {
 	}
 }
 
-func (m *Manager) getRoom(id string) (*Room, error) {
+// GetRoom get room by id
+func (m *Manager) GetRoom(id string) (*Room, error) {
 	m.RLock()
 	defer m.RUnlock()
 	r, ok := m.rooms[id]
@@ -39,7 +41,8 @@ func (m *Manager) getRoom(id string) (*Room, error) {
 	return r, nil
 }
 
-func (m *Manager) getMemberRoom(id string) (*Room, error) {
+// GetMemberRoom get member's room by member id
+func (m *Manager) GetMemberRoom(id string) (*Room, error) {
 	m.RLock()
 	defer m.RUnlock()
 	rid, ok := m.members[id]
@@ -53,21 +56,24 @@ func (m *Manager) getMemberRoom(id string) (*Room, error) {
 	return r, nil
 }
 
-func (m *Manager) isMemberInRoom(id string) bool {
+func (m *Manager) IsMemberInRoom(id string) bool {
 	_, ok := m.members[id]
 	return ok
 }
 
 func (m *Manager) OnRoomCreated(r *Room) {
+	log.Debugf("Room %s is created:", r.id)
 	m.Lock()
 	m.rooms[r.id] = r
 	m.Unlock()
 }
 
 func (m *Manager) OnMemberJoin(r *Room, mem *Member) {
+	log.Debugf("Member %s is joined into Room %s:", mem.id, r.id)
 	m.Lock()
 	m.members[mem.id] = r.id
 	m.Unlock()
+	log.Debug("Current room members:", m.members)
 }
 
 func (m *Manager) OnMemberQuit(r *Room, mem *Member) {
@@ -75,6 +81,7 @@ func (m *Manager) OnMemberQuit(r *Room, mem *Member) {
 	delete(m.rooms, r.id)
 	delete(m.members, mem.id)
 	m.Unlock()
+	log.Debug("Current room members:", m.members)
 }
 
 func (m *Manager) OnMessage(r *Room, mem *Member, txt string) {
@@ -84,10 +91,12 @@ func (m *Manager) OnMessage(r *Room, mem *Member, txt string) {
 func (m *Manager) Send(mem *Member, t msg.Type, n interface{}) {
 	cli := session.NewSessionService("chat-demo.gateway", m.service.Client())
 	ssid := mem.meta["session_id"]
+	j1, _ := json.Marshal(n)
+	j2, _ := json.Marshal(map[string]interface{}{"type": t, "data": string(j1)})
 	in := &session.Request{
 		Id:   ssid,
 		Type: 12,
-		// TODO
+		Data: j2,
 	}
 	cli.Send(context.Background(), in)
 }

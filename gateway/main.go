@@ -4,8 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"gateway/log"
-	gws "gateway/session"
-	"proto/session"
+	"gateway/session"
 	"strings"
 	"time"
 
@@ -29,7 +28,7 @@ func main() {
 		micro.RegistryAddrs(strings.Split(*regAddrs, ",")),
 	)
 
-	sessionMgr := gws.NewManager(service)
+	sessionMgr := session.NewManager(service)
 	gw := gw.NewGateway(
 		gw.LogLevel("debug"),
 		gw.Address(":8888"),
@@ -46,7 +45,7 @@ func main() {
 	}
 
 	// register rpc handler
-	session.RegisterSessionHandler(service.Server(), gws.NewSessionHandler(sessionMgr))
+	session.RegisterSessionHandler(service.Server(), session.NewSessionHandler(sessionMgr))
 
 	if err := service.Run(); err != nil {
 		log.Fatal("service run error:", err)

@@ -4,8 +4,6 @@ import (
 	"context"
 	"gateway/log"
 
-	"proto/session"
-
 	"github.com/ofavor/socket-gw/transport"
 )
 
@@ -14,14 +12,14 @@ type sessionHandlerImpl struct {
 }
 
 // NewSessionHandler create new session handler
-func NewSessionHandler(m *Manager) session.SessionHandler {
+func NewSessionHandler(m *Manager) SessionHandler {
 	return &sessionHandlerImpl{
 		manager: m,
 	}
 }
 
 // Send data to session
-func (m *sessionHandlerImpl) Send(ctx context.Context, in *session.Request, out *session.Response) error {
+func (m *sessionHandlerImpl) Send(ctx context.Context, in *Request, out *Response) error {
 	log.Debug("Sending data to session:", in)
 	s, err := m.manager.GetSession(in.Id)
 	if err != nil {
@@ -32,7 +30,7 @@ func (m *sessionHandlerImpl) Send(ctx context.Context, in *session.Request, out 
 }
 
 // Broadcast data to sessions
-func (m *sessionHandlerImpl) Broadcast(ctx context.Context, in *session.Request, out *session.Response) error {
+func (m *sessionHandlerImpl) Broadcast(ctx context.Context, in *Request, out *Response) error {
 	log.Debug("Broadcast data to sessions:", in)
 	ss, err := m.manager.GetAllSessions()
 	if err != nil {

@@ -3,14 +3,13 @@ package session
 import (
 	"context"
 	"fmt"
+	"gateway/backend"
+	"gateway/log"
 	"sync/atomic"
-
-	"proto/chat"
 
 	"github.com/ofavor/micro-lite"
 	"github.com/ofavor/socket-gw/session"
 	"github.com/ofavor/socket-gw/transport"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -41,7 +40,12 @@ var uidCounter = int32(10)
 func (m *Manager) OnSessionAuth(s *session.Session, p *transport.Packet) error {
 	// bind uid to session
 	s.Meta()["uid"] = fmt.Sprintf("%d", atomic.AddInt32(&uidCounter, 1))
+	log.Debugf("Session %s meta:%v", s.ID(), s.Meta())
 	return nil
+}
+
+var backendMapping = map[transport.PacketType]string{
+	PacketCustomTypeChat: "chat-demo.chat",
 }
 
 // OnSessionReceived handle packet received from session
@@ -49,17 +53,24 @@ func (m *Manager) OnSessionReceived(s *session.Session, p *transport.Packet) err
 	switch p.Type {
 	case PacketCustomTypeEcho: // send packet back
 		s.Send(p)
-	case PacketCustomTypeChat: // forward to chat service
-		cr := &chat.CommandRequest{}
-		if err := proto.Unmarshal(p.Body, cr); err != nil {
-			return err
-		}
-		cr.Meta["server_id"] = m.service.Server().ID()
-		cr.Meta["session_id"] = s.ID()
-		cr.Meta["uid"] = s.Meta()["uid"]
-		chatSvc := chat.NewChatService("chat-demo.chat", m.service.Client())
-		if _, err := chatSvc.Command(context.Background(), cr); err != nil {
-			return err
+	default: // forward to backend service
+		sn, ok := backendMapping[p.Type]
+		if !ok {
+			log.Errorf("No backend service for packet type:%d", p.Type)
+		} else {
+			dr := &backend.DataRequest{
+				Id:   s.ID(),
+				Type: uint32(p.Type),
+				Data: p.Body,
+				Meta: make(map[string]string),
+			}
+			dr.Meta["server_id"] = m.service.Server().ID()
+			dr.Meta["session_id"] = s.ID()
+			dr.Meta["uid"] = s.Meta()["uid"]
+			cli := backend.NewBackendService(sn, m.service.Client())
+			if _, err := cli.Data(context.Background(), dr); err != nil {
+				log.Error("Send data to backend service error:", err)
+			}
 		}
 	}
 	return nil

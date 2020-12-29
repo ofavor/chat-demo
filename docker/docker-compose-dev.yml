@@ -75,6 +75,7 @@ services:
       # linked directly into the the package directory i.e. /go/src/[PROJECTPATH]
       - ../:/app
       - ../../micro-lite:/micro-lite # use local repo for developing
+      - ../../socket-gw:/socket-gw # use local repo for developing
     environment: 
       - TZ=Asia/Shanghai
       # directory to look for the main go entry point (default: /app)
