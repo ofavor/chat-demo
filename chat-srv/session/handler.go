@@ -4,11 +4,15 @@ import (
 	"chat-srv/chat"
 	"chat-srv/chat/msg"
 	"chat-srv/log"
+	"chat-srv/tracer"
 	"context"
 	"encoding/json"
 	"errors"
 	"gateway/backend"
 	"strconv"
+
+	"github.com/openzipkin/zipkin-go"
+	"github.com/openzipkin/zipkin-go/model"
 
 	"github.com/ofavor/micro-lite/client"
 	"github.com/ofavor/micro-lite/client/selector"
@@ -53,6 +57,12 @@ func (h *Handler) Disconnect(ctx context.Context, in *backend.StatusRequest, out
 // Data handle gateway data request
 func (h *Handler) Data(ctx context.Context, in *backend.DataRequest, out *backend.DataResponse) error {
 	log.Debug("Got data request:", in)
+	tcx := in.Meta["trace_ctx"]
+	spanCtx := &model.SpanContext{}
+	json.Unmarshal([]byte(tcx), spanCtx)
+	span := tracer.StartSpan("chat-srv.ondata", zipkin.Parent(*spanCtx))
+	defer span.Finish()
+
 	data := map[string]string{}
 	if err := json.Unmarshal(in.Data, &data); err != nil {
 		log.Error("Unmarshal data request error:", err)
@@ -79,6 +89,7 @@ func (h *Handler) Data(ctx context.Context, in *backend.DataRequest, out *backen
 		log.Error("Bad request data, 'type' is required")
 		return errors.New("bad request data")
 	}
+	span.Tag("data_type", t)
 	typ, err := strconv.Atoi(t)
 	if err != nil {
 		log.Error("Bad request data, 'type' error:", err)

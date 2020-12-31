@@ -2,9 +2,11 @@ package session
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"gateway/backend"
 	"gateway/log"
+	"gateway/tracer"
 	"sync/atomic"
 
 	"github.com/ofavor/micro-lite"
@@ -50,6 +52,8 @@ var backendMapping = map[transport.PacketType]string{
 
 // OnSessionReceived handle packet received from session
 func (m *Manager) OnSessionReceived(s *session.Session, p *transport.Packet) error {
+	span := tracer.StartSpan("session.receive")
+	defer span.Finish()
 	switch p.Type {
 	case PacketCustomTypeEcho: // send packet back
 		s.Send(p)
@@ -67,6 +71,8 @@ func (m *Manager) OnSessionReceived(s *session.Session, p *transport.Packet) err
 			dr.Meta["server_id"] = m.service.Server().ID()
 			dr.Meta["session_id"] = s.ID()
 			dr.Meta["uid"] = s.Meta()["uid"]
+			tcx, _ := json.Marshal(span.Context())
+			dr.Meta["trace_ctx"] = string(tcx)
 			cli := backend.NewBackendService(sn, m.service.Client())
 			if _, err := cli.Data(context.Background(), dr); err != nil {
 				log.Error("Send data to backend service error:", err)
