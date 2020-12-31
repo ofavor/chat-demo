@@ -85,7 +85,7 @@ services:
       - CMD=build
       # arguments can be used to specify arguments to pass to the executable
       # on running
-      - ARGS=-registry_addrs=etcd:2379
+      - ARGS=-registry_addrs=etcd:2379 -redis_addr=redis:6379
       # ignore will indicate which subdirectories to ignore from watching
       - IGNORE=/src/web
     depends_on: 

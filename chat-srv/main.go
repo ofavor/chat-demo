@@ -9,11 +9,13 @@ import (
 	"gateway/backend"
 	"strings"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/ofavor/micro-lite"
 )
 
 func main() {
 	regAddrs := flag.String("registry_addrs", "127.0.0.1:2379", "registry address list, splitted by ','")
+	rdsAddr := flag.String("redis_addr", "127.0.0.1:6379", "redis server address")
 	flag.Parse()
 
 	fmt.Println("registry address:", *regAddrs)
@@ -26,7 +28,9 @@ func main() {
 		micro.RegistryAddrs(strings.Split(*regAddrs, ",")),
 	)
 
-	chatMgr := chat.NewManager(service)
+	rds := redis.NewClient(&redis.Options{Addr: *rdsAddr})
+
+	chatMgr := chat.NewManager(service, rds)
 
 	// register rpc
 	backend.RegisterBackendHandler(service.Server(), session.NewHandler(chatMgr))

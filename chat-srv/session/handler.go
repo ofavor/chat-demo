@@ -8,6 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"gateway/backend"
+	"strconv"
+
+	"github.com/ofavor/micro-lite/client"
+	"github.com/ofavor/micro-lite/client/selector"
 )
 
 type Handler struct {
@@ -20,92 +24,78 @@ func NewHandler(m *chat.Manager) *Handler {
 	}
 }
 
-func (h *Handler) onCreateRoom(meta map[string]string, cmd *msg.CmdCreateRoom) error {
-	uid := meta["uid"]
-	if h.manager.IsMemberInRoom(uid) {
-		return errors.New("already in a room")
-	}
-	room := chat.NewRoom(h.manager, cmd.Name)
-	mem := chat.NewMember(uid, cmd.Nickname, meta, h.manager)
-	log.Debug("Member is created:", mem)
-	room.MemberJoin(mem)
-	return nil
-}
-
-func (h *Handler) onJoinRoom(meta map[string]string, cmd *msg.CmdJoinRoom) error {
-	uid := meta["uid"]
-	if h.manager.IsMemberInRoom(uid) {
-		return errors.New("already in a room")
-	}
-	r, err := h.manager.GetRoom(cmd.ID)
-	if err != nil {
-		return err
-	}
-	mem := chat.NewMember(uid, cmd.Nickname, meta, h.manager)
-	r.MemberJoin(mem)
-	return nil
-}
-
-func (h *Handler) onQuitRoom(meta map[string]string, cmd *msg.CmdQuitRoom) error {
-	uid := meta["uid"]
-	if !h.manager.IsMemberInRoom(uid) {
-		return errors.New("not in a room")
-	}
-	r, err := h.manager.GetRoom(cmd.ID)
-	if err != nil {
-		return err
-	}
-	r.MemberQuit(uid)
-	return nil
-}
-
-func (h *Handler) onMessage(meta map[string]string, cmd *msg.CmdMessage) error {
-	uid := meta["uid"]
-	r, err := h.manager.GetMemberRoom(uid)
-	if err != nil {
-		return err
-	}
-	r.Message(uid, cmd.Message)
-	return nil
-}
-
+// Connect handle session connect event
 func (h *Handler) Connect(ctx context.Context, in *backend.StatusRequest, out *backend.StatusResponse) error {
+	// nothing to do
 	return nil
 }
+
+// Disconnect handle session disconnect event
 func (h *Handler) Disconnect(ctx context.Context, in *backend.StatusRequest, out *backend.StatusResponse) error {
+	uid := in.Meta["uid"]
+	rid, _ := h.manager.GetMemberRoomID(uid)
+	svid, err := h.manager.GetRoomServerID(rid)
+	log.Debugf("Current server id:%s <==> Room server id:%s", h.manager.GetService().Server().ID(), svid)
+	if err != nil {
+		log.Error("Failed to get room server id:", err)
+		return err
+	}
+	if svid != h.manager.GetService().Server().ID() { // forward to another server
+		log.Debugf("Forwad status request to other server")
+		cli := backend.NewBackendService("chat-demo.chat", h.manager.GetService().Client())
+		cli.Disconnect(ctx, in, client.WithSelectOption(selector.WithIDFilter([]string{svid})))
+		return nil
+	}
+	h.manager.Disconnect(rid, uid)
 	return nil
 }
 
-type Data struct {
-	Type int
-	Data string
-}
-
+// Data handle gateway data request
 func (h *Handler) Data(ctx context.Context, in *backend.DataRequest, out *backend.DataResponse) error {
 	log.Debug("Got data request:", in)
-	data := &Data{}
-	if err := json.Unmarshal(in.Data, data); err != nil {
+	data := map[string]string{}
+	if err := json.Unmarshal(in.Data, &data); err != nil {
+		log.Error("Unmarshal data request error:", err)
 		return err
 	}
-	switch msg.Type(data.Type) {
+	rid, ok := data["room_id"]
+	log.Debugf("Data request room_id:%s", rid)
+	if ok {
+		svid, err := h.manager.GetRoomServerID(rid)
+		log.Debugf("Current server id:%s <==> Room server id:%s", h.manager.GetService().Server().ID(), svid)
+		if err != nil {
+			log.Error("Failed to get room server id:", err)
+			return err
+		}
+		if svid != h.manager.GetService().Server().ID() { // forward to another server
+			log.Debugf("Forwad data request to other server")
+			cli := backend.NewBackendService("chat-demo.chat", h.manager.GetService().Client())
+			cli.Data(ctx, in, client.WithSelectOption(selector.WithIDFilter([]string{svid})))
+			return nil
+		}
+	}
+	t, ok := data["type"]
+	if !ok {
+		log.Error("Bad request data, 'type' is required")
+		return errors.New("bad request data")
+	}
+	typ, err := strconv.Atoi(t)
+	if err != nil {
+		log.Error("Bad request data, 'type' error:", err)
+		return err
+	}
+	switch msg.Type(typ) {
 	case msg.TypeCmdCreateRoom:
-		cmd := &msg.CmdCreateRoom{}
-		json.Unmarshal([]byte(data.Data), cmd)
-		h.onCreateRoom(in.Meta, cmd)
+		h.manager.CreateRoom(data["name"], in.Meta["uid"], data["nickname"], in.Meta)
 	case msg.TypeCmdJoinRoom:
-		cmd := &msg.CmdJoinRoom{}
-		json.Unmarshal([]byte(data.Data), cmd)
-		h.onJoinRoom(in.Meta, cmd)
+		h.manager.JoinRoom(rid, in.Meta["uid"], data["nickname"], in.Meta)
 	case msg.TypeCmdQuitRoom:
-		cmd := &msg.CmdQuitRoom{}
-		json.Unmarshal([]byte(data.Data), cmd)
-		h.onQuitRoom(in.Meta, cmd)
+		h.manager.QuitRoom(rid, in.Meta["uid"])
 	case msg.TypeCmdMessage:
-		cmd := &msg.CmdMessage{}
-		json.Unmarshal([]byte(data.Data), cmd)
-		h.onMessage(in.Meta, cmd)
+		h.manager.Message(rid, in.Meta["uid"], data["message"])
 	default:
-		log.Error("Invalid data type:", data.Type)
+		log.Error("Unsupported request data type:", t)
+		return errors.New("Bad request data type")
 	}
 	return nil
 }

@@ -75,3 +75,23 @@ func (m *Manager) OnSessionReceived(s *session.Session, p *transport.Packet) err
 	}
 	return nil
 }
+
+// OnSessionClosed handle session closed event
+func (m *Manager) OnSessionClosed(s *session.Session) error {
+	go func() {
+		for _, sn := range backendMapping {
+			sr := &backend.StatusRequest{
+				Id:   s.ID(),
+				Meta: make(map[string]string),
+			}
+			sr.Meta["server_id"] = m.service.Server().ID()
+			sr.Meta["session_id"] = s.ID()
+			sr.Meta["uid"] = s.Meta()["uid"]
+			cli := backend.NewBackendService(sn, m.service.Client())
+			if _, err := cli.Disconnect(context.Background(), sr); err != nil {
+				log.Error("Send disconnect notification to backend service error:", err)
+			}
+		}
+	}()
+	return nil
+}

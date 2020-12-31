@@ -9,7 +9,6 @@ import (
 
 	"github.com/ofavor/socket-gw/transport"
 
-	"chat-srv/chat/msg"
 	"client/log"
 
 	"github.com/ofavor/socket-gw/client"
@@ -77,30 +76,16 @@ func main() {
 		cmd := parseCmd(text)
 		switch cmd[0] {
 		case "create":
-			cmd := &msg.CmdCreateRoom{
-				Name:     cmd[1],
-				Nickname: cmd[2],
-			}
-			data := buildPacketData(1, cmd)
+			data, _ := json.Marshal(map[string]string{"type": "1", "name": cmd[1], "nickname": cmd[2]})
 			client.Send(transport.NewPacket(12, data))
 		case "join":
-			cmd := &msg.CmdJoinRoom{
-				ID:       cmd[1],
-				Nickname: cmd[2],
-			}
-			data := buildPacketData(2, cmd)
+			data, _ := json.Marshal(map[string]string{"type": "2", "room_id": cmd[1], "nickname": cmd[2]})
 			client.Send(transport.NewPacket(12, data))
 		case "quit":
-			cmd := &msg.CmdQuitRoom{
-				ID: cmd[1],
-			}
-			data := buildPacketData(3, cmd)
+			data, _ := json.Marshal(map[string]string{"type": "3", "room_id": cmd[1]})
 			client.Send(transport.NewPacket(12, data))
 		case "send":
-			cmd := &msg.CmdMessage{
-				Message: cmd[1],
-			}
-			data := buildPacketData(4, cmd)
+			data, _ := json.Marshal(map[string]string{"type": "4", "room_id": cmd[1], "message": cmd[2]})
 			client.Send(transport.NewPacket(12, data))
 		}
 	}

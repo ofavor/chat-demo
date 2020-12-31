@@ -6,28 +6,25 @@ import (
 
 // Member chat member
 type Member struct {
-	id        string
-	nickname  string
-	meta      map[string]string
-	transport Transport
+	id       string
+	nickname string
+	meta     map[string]string
+	sendFunc MemberSend
 }
 
-// Transport send
-type Transport interface {
-	Send(mem *Member, t msg.Type, n interface{})
-}
+type MemberSend func(mem *Member, t msg.Type, n interface{}) error
 
-// NewMember create new member
-func NewMember(id string, nn string, meta map[string]string, trans Transport) *Member {
+// newMember create new member
+func newMember(id string, nn string, meta map[string]string, send MemberSend) *Member {
 	return &Member{
-		id:        id,
-		nickname:  nn,
-		meta:      meta,
-		transport: trans,
+		id:       id,
+		nickname: nn,
+		meta:     meta,
+		sendFunc: send,
 	}
 }
 
 // Send data to member
 func (m *Member) Send(t msg.Type, n interface{}) {
-	m.transport.Send(m, t, n)
+	m.sendFunc(m, t, n)
 }

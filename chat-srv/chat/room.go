@@ -2,9 +2,7 @@ package chat
 
 import (
 	"chat-srv/chat/msg"
-	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -13,32 +11,18 @@ type Room struct {
 	sync.RWMutex
 	id      string
 	name    string
-	handler RoomHandler
 	members map[string]*Member
-}
-
-// RoomHandler handler for room
-type RoomHandler interface {
-	OnRoomCreated(r *Room)
-
-	OnMemberJoin(r *Room, m *Member)
-
-	OnMemberQuit(r *Room, m *Member)
-
-	OnMessage(r *Room, m *Member, txt string)
 }
 
 var roomIDCounter = int32(100)
 
-// NewRoom create new room
-func NewRoom(h RoomHandler, name string) *Room {
+// newRoom create new room
+func newRoom(id string, name string) *Room {
 	r := &Room{
-		id:      fmt.Sprintf("%d", atomic.AddInt32(&roomIDCounter, 1)),
+		id:      id,
 		name:    name,
-		handler: h,
 		members: make(map[string]*Member),
 	}
-	h.OnRoomCreated(r)
 	return r
 }
 
@@ -48,13 +32,15 @@ func (r *Room) MemberJoin(mem *Member) {
 	r.members[mem.id] = mem
 	r.Unlock()
 
-	r.handler.OnMemberJoin(r, mem)
-
 	for _, mm := range r.members {
 		if mm.id != mem.id {
 			// send notification
 			n := &msg.NotifyJoinRoom{
 				ID: r.id,
+				Room: msg.Room{
+					ID:   r.id,
+					Name: r.name,
+				},
 				Who: msg.Member{
 					ID:       mem.id,
 					Nickname: mem.nickname,
@@ -73,13 +59,15 @@ func (r *Room) MemberQuit(id string) {
 	delete(r.members, id)
 	r.Unlock()
 
-	r.handler.OnMemberQuit(r, mem)
-
 	for _, mm := range r.members {
 		if mm.id != mem.id {
 			// send notification
 			n := &msg.NotifyQuitRoom{
 				ID: r.id,
+				Room: msg.Room{
+					ID:   r.id,
+					Name: r.name,
+				},
 				Who: msg.Member{
 					ID:       mem.id,
 					Nickname: mem.nickname,
@@ -87,6 +75,33 @@ func (r *Room) MemberQuit(id string) {
 				At: time.Now().Unix(),
 			}
 			mm.Send(msg.TypeNotifyQuitRoom, n)
+		}
+	}
+}
+
+// MemberDisconnect disconnect
+func (r *Room) MemberDisconnect(id string) {
+	r.Lock()
+	mem, _ := r.members[id]
+	delete(r.members, id)
+	r.Unlock()
+
+	for _, mm := range r.members {
+		if mm.id != mem.id {
+			// send notification
+			n := &msg.NotifyQuitRoom{
+				ID: r.id,
+				Room: msg.Room{
+					ID:   r.id,
+					Name: r.name,
+				},
+				Who: msg.Member{
+					ID:       mem.id,
+					Nickname: mem.nickname,
+				},
+				At: time.Now().Unix(),
+			}
+			mm.Send(msg.TypeNotifyDisconnected, n)
 		}
 	}
 }
@@ -99,6 +114,10 @@ func (r *Room) Message(id string, txt string) {
 			// send notification
 			n := &msg.NotifyMessage{
 				ID: r.id,
+				Room: msg.Room{
+					ID:   r.id,
+					Name: r.name,
+				},
 				Who: msg.Member{
 					ID:       mem.id,
 					Nickname: mem.nickname,
@@ -109,5 +128,11 @@ func (r *Room) Message(id string, txt string) {
 			mm.Send(msg.TypeNotifyMessage, n)
 		}
 	}
-	r.handler.OnMessage(r, mem, txt)
+}
+
+// IsEmpty check if the room is empty
+func (r *Room)IsEmpty() bool {
+	r.RLock()
+	defer r.RUnlock()
+	return len(r.members) == 0
 }
