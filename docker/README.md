@@ -5,8 +5,9 @@ Docker related files
 ## Run Dev
 
 ```
-docker-compose -f docker-compose-dev.yml up -d
+docker-compose -p chat-demo -f docker-compose-dev.yml up -d --scale chat-srv=2
 ```
+(Use two chat services to test micro selector)
 
 ## Logs
 

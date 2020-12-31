@@ -43,17 +43,19 @@ services:
       # app directory is symlinked into the project path specified as
       # environment variable. For goconvey to work, the package must be
       # linked directly into the the package directory i.e. /go/src/[PROJECTPATH]
-      - ../gateway:/app
+      - ../:/app
+      - ../../micro-lite:/micro-lite
+      - ../../socket-gw:/socket-gw # use local repo for developing
     environment: 
       - TZ=Asia/Shanghai
       # directory to look for the main go entry point (default: /app)
-      - DIRECTORY=/app
+      - DIRECTORY=/app/gateway
       # specify the command that should be run, can be 'build' or 'test'
       # 'build' is the default command 
       - CMD=build
       # arguments can be used to specify arguments to pass to the executable
       # on running
-      - ARGUMENTS=-test=someString
+      - ARGS=-registry_addrs=etcd:2379
       # ignore will indicate which subdirectories to ignore from watching
       - IGNORE=/src/web
     depends_on: 
@@ -64,24 +66,26 @@ services:
 
   chat-srv:
     image: dkfbasel/hot-reload-go:1.14.2
-    ports:
-      - 8889:8889
+    # ports:
+      # - 8889:8889  # do not need to expose port, it's a internal service
     volumes:
       # mount the project into the docker container. Please note, that the
       # app directory is symlinked into the project path specified as
       # environment variable. For goconvey to work, the package must be
       # linked directly into the the package directory i.e. /go/src/[PROJECTPATH]
-      - ../chat-srv:/app
+      - ../:/app
+      - ../../micro-lite:/micro-lite # use local repo for developing
+      - ../../socket-gw:/socket-gw # use local repo for developing
     environment: 
       - TZ=Asia/Shanghai
       # directory to look for the main go entry point (default: /app)
-      - DIRECTORY=/app
+      - DIRECTORY=/app/chat-srv
       # specify the command that should be run, can be 'build' or 'test'
       # 'build' is the default command 
       - CMD=build
       # arguments can be used to specify arguments to pass to the executable
       # on running
-      - ARGUMENTS=-test=someString
+      - ARGS=-registry_addrs=etcd:2379 -redis_addr=redis:6379
       # ignore will indicate which subdirectories to ignore from watching
       - IGNORE=/src/web
     depends_on: 

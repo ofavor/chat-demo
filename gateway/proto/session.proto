@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package session;
+
+option go_package = "../session;session";
+
+message Request {
+    string  id = 1; // session id
+    uint32  type = 2;
+    bytes   data = 3;
+}
+
+message Response {
+}
+
+service Session {
+    rpc Send(Request) returns (Response) {} // send data to specified session
+    rpc Broadcast(Request) returns (Response) {} // send data to all sessions
+}
