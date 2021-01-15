@@ -58,6 +58,8 @@ services:
       - ARGS=-registry_addrs=etcd:2379 -tracer_addr=zipkin:9411
       # ignore will indicate which subdirectories to ignore from watching
       - IGNORE=/src/web
+      - GO111MODULE=on
+      - GOPROXY=https://goproxy.cn,direct
     depends_on: 
       - mysql
       - redis
@@ -88,6 +90,8 @@ services:
       - ARGS=-registry_addrs=etcd:2379 -redis_addr=redis:6379 -tracer_addr=zipkin:9411
       # ignore will indicate which subdirectories to ignore from watching
       - IGNORE=/src/web
+      - GO111MODULE=on
+      - GOPROXY=https://goproxy.cn,direct
     depends_on: 
       - mysql
       - redis
